@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Penalty Predictor</title>
+<style>
+  :root {
+    --primary:#4CAF50;
+    --primary-dark:#388E3C;
+    --secondary:#03A9F4;
+    --danger:#f44336;
+    --bg:#f1f5f9;
+    --card:#ffffff;
+    --text:#212121;
+  }
+  body{margin:0;padding:0;font-family:"Roboto",sans-serif;background:var(--bg);color:var(--text)}
+  .container{max-width:500px;margin:0 auto;padding:16px}
+  h1{text-align:center;margin:12px 0;font-size:22px;color:var(--primary-dark)}
+  .card{background:var(--card);border-radius:16px;padding:16px;margin-bottom:16px;
+        box-shadow:0 2px 6px rgba(0,0,0,0.1)}
+  button{width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;margin-top:8px;
+         background:var(--primary);color:#fff;font-weight:500;cursor:pointer;transition:.2s}
+  button:hover{background:var(--primary-dark)}
+  .sides{display:flex;justify-content:space-between;margin-top:16px}
+  .side{flex:1;margin:0 6px;padding:18px 0;text-align:center;border-radius:14px;
+        background:#e0e0e0;font-weight:600}
+  .side.pred{background:var(--primary);color:#fff}
+  .stats{display:flex;justify-content:space-around;margin-top:12px}
+  .stat-box{flex:1;margin:0 6px;background:#fafafa;border-radius:14px;padding:14px 0;text-align:center;font-size:14px;font-weight:500}
+  .stat-box span{display:block;font-size:20px;font-weight:700;margin-top:4px;color:var(--primary-dark)}
+  .keeper-stats{margin-top:12px;font-size:14px}
+  .keeper-stats div{margin:6px 0;padding:10px;border-radius:12px;background:#f9f9f9}
+  #message{text-align:center;font-size:16px;font-weight:600;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Penalty Predictor ⚽</h1>
+
+  <div class="card">
+    <div style="font-weight:600;text-align:center">Prédiction actuelle</div>
+    <div class="sides">
+      <div class="side" id="left">Gauche</div>
+      <div class="side" id="center">Centre</div>
+      <div class="side" id="right">Droite</div>
+    </div>
+    <button id="predictBtn">Prédire</button>
+    <div id="message"></div>
+  </div>
+
+  <div class="card">
+    <div style="font-weight:600;text-align:center">Résultats</div>
+    <div class="stats">
+      <div class="stat-box">Buts<span id="wins">0</span></div>
+      <div class="stat-box">Arrêts<span id="losses">0</span></div>
+      <div class="stat-box">Taux<span id="rate">0%</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="font-weight:600;text-align:center">Stats gardien</div>
+    <div class="keeper-stats">
+      <div>Gauche : <span id="k-left">0</span></div>
+      <div>Centre : <span id="k-center">0</span></div>
+      <div>Droite : <span id="k-right">0</span></div>
+    </div>
+    <button id="reset" style="background:var(--danger)">Réinitialiser</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const sides=["Gauche","Centre","Droite"];
+  const getEl=id=>document.getElementById(id);
+
+  // Load stats from localStorage
+  let state = JSON.parse(localStorage.getItem("penaltyStats")) || {
+    wins:0, losses:0,
+    keeper:{Gauche:0,Centre:0,Droite:0},
+    lastPrediction:null
+  };
+
+  const winsEl=getEl("wins"),lossesEl=getEl("losses"),rateEl=getEl("rate");
+  const msgEl=getEl("message");
+  const kLeft=getEl("k-left"),kCenter=getEl("k-center"),kRight=getEl("k-right");
+  const leftEl=getEl("left"),centerEl=getEl("center"),rightEl=getEl("right");
+
+  function save(){localStorage.setItem("penaltyStats",JSON.stringify(state));}
+  function updateUI(pred=null){
+    [leftEl,centerEl,rightEl].forEach(el=>el.classList.remove("pred"));
+    if(pred){
+      if(pred==="Gauche") leftEl.classList.add("pred");
+      if(pred==="Centre") centerEl.classList.add("pred");
+      if(pred==="Droite") rightEl.classList.add("pred");
+    }
+    winsEl.textContent=state.wins;
+    lossesEl.textContent=state.losses;
+    const total=state.wins+state.losses;
+    rateEl.textContent=total?(Math.round(state.wins/total*100))+"%":"0%";
+    kLeft.textContent=state.keeper.Gauche;
+    kCenter.textContent=state.keeper.Centre;
+    kRight.textContent=state.keeper.Droite;
+  }
+
+  // Choose prediction: use side less chosen by keeper
+  function choosePrediction(){
+    const counts=state.keeper;
+    const min=Math.min(counts.Gauche,counts.Centre,counts.Droite);
+    const candidates=sides.filter(s=>counts[s]===min);
+    return candidates[Math.floor(Math.random()*candidates.length)];
+  }
+
+  // Step 1: Prediction
+  getEl("predictBtn").onclick=()=>{
+    const pred=choosePrediction();
+    state.lastPrediction=pred;
+    msgEl.textContent="⚽ Tir recommandé : "+pred+" ! Maintenant, indique le côté du gardien.";
+    updateUI(pred);
+
+    // Add buttons for user feedback
+    msgEl.innerHTML += `
+      <div style="margin-top:12px">
+        <button onclick="window.gardienFeedback('Gauche')" style="background:#555">Gardien Gauche</button>
+        <button onclick="window.gardienFeedback('Centre')" style="background:#555">Gardien Centre</button>
+        <button onclick="window.gardienFeedback('Droite')" style="background:#555">Gardien Droite</button>
+      </div>`;
+  };
+
+  // Step 2: User feedback on keeper
+  window.gardienFeedback=(keeper)=>{
+    if(!state.lastPrediction) return;
+    state.keeper[keeper]++;
+    if(state.lastPrediction!==keeper){
+      state.wins++;
+      msgEl.textContent="🎉 Bravo ! Tu as marqué car le gardien est allé "+keeper+".";
+    }else{
+      state.losses++;
+      msgEl.textContent="😅 Dommage, gardien "+keeper+" a arrêté ton tir.";
+    }
+    state.lastPrediction=null;
+    save();
+    updateUI();
+    msgEl.innerHTML += `<br><br><button id="nextBtn">👉 Nouvelle prédiction</button>`;
+    document.getElementById("nextBtn").onclick=()=>getEl("predictBtn").click();
+  };
+
+  // Reset stats
+  getEl("reset").onclick=()=>{
+    if(confirm("Réinitialiser toutes les stats ?")){
+      state={wins:0,losses:0,keeper:{Gauche:0,Centre:0,Droite:0},lastPrediction:null};
+      save(); updateUI(); msgEl.textContent="";
+    }
+  };
+
+  updateUI();
+})();
+</script>
+</body>
+</html>
